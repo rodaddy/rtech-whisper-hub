@@ -1,0 +1,33 @@
+# Example only: one hub and one Postgres on a single host.
+# Copy to docker-compose.yml, copy env.example to .env, fill in the values.
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: whisper
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: whisper_hub
+    volumes:
+      - hub-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U whisper -d whisper_hub"]
+      interval: 5s
+      retries: 10
+
+  hub:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://whisper:${POSTGRES_PASSWORD}@db:5432/whisper_hub
+      HUB_PORT: "8096"
+      # VOICE_PROFILE_DIR: /voice
+    # volumes:
+    #   - ./voice:/voice:ro   # ref.wav (mono 24 kHz WAV) + ref.txt (its transcript)
+    ports:
+      - "8096:8096"
+
+volumes:
+  hub-db:
