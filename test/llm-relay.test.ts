@@ -536,9 +536,9 @@ test("a slow reader is not an idle upstream: every chunk arrives, no timeout eve
   assert.equal(slots(), 0);
 });
 
-// ---- review findings: hub #42 #46 #47 #50 ----
+// ---- review findings: model smuggling, body limits, upstream errors ----
 
-test("#42 a duplicate model key cannot smuggle an unlisted model upstream", async () => {
+test("a duplicate model key cannot smuggle an unlisted model upstream", async () => {
   const { chat, calls } = harness({ upstream: { allowlist: ["qwen3-8b"] } });
   // JSON.parse keeps the last key (validated); a first-key reader would see llama-70b.
   const res = await chat(
@@ -554,7 +554,7 @@ test("#42 a duplicate model key cannot smuggle an unlisted model upstream", asyn
   assert.equal(JSON.parse(sent).model, "qwen3-8b");
 });
 
-test("#46 an over-limit key gets 429 before the hub reads its body", async () => {
+test("an over-limit key gets 429 before the hub reads its body", async () => {
   const { app } = harness({});
   const send = (body: BodyInit) =>
     app.request(
@@ -586,7 +586,7 @@ test("#46 an over-limit key gets 429 before the hub reads its body", async () =>
   assert.ok(pulls <= 1, "the body is not read past the first pull");
 });
 
-test("#46 an over-limit key is refused even when its body is too large", async () => {
+test("an over-limit key is refused even when its body is too large", async () => {
   const { chat } = harness({});
   for (let i = 0; i < LLM_LIMITS.burst; i++) {
     assert.equal((await chat(ask())).status, 200);
@@ -595,7 +595,7 @@ test("#46 an over-limit key is refused even when its body is too large", async (
   assert.equal(res.status, 429);
 });
 
-test("#46 a too-large body frees the in-flight slot taken before the read", async () => {
+test("a too-large body frees the in-flight slot taken before the read", async () => {
   const { chat, slots } = harness({});
   for (let i = 0; i < LLM_LIMITS.inFlight + 1; i++) {
     const res = await chat(ask({ pad: "x".repeat(LLM_LIMITS.bodyBytes) }));
@@ -604,7 +604,7 @@ test("#46 a too-large body frees the in-flight slot taken before the read", asyn
   }
 });
 
-test("#47 upstream 404 without the model name is 502 (misconfigured upstream)", async () => {
+test("upstream 404 without the model name is 502 (misconfigured upstream)", async () => {
   const { chat } = harness({
     reply: () => new Response("404 page not found", { status: 404 }),
   });
@@ -617,7 +617,7 @@ test("#47 upstream 404 without the model name is 502 (misconfigured upstream)", 
   });
 });
 
-test("#47 a stalled upstream 404 body is 504 upstream_timeout, not 502", async () => {
+test("a stalled upstream 404 body is 504 upstream_timeout, not 502", async () => {
   const { clock, fire } = manualClock();
   const { chat, calls, slots, logs } = harness({
     clock,
@@ -637,7 +637,7 @@ test("#47 a stalled upstream 404 body is 504 upstream_timeout, not 502", async (
   assert.match(logs.at(-1)!, /"code":"upstream_timeout"/);
 });
 
-test("#47 a client leaving during a stalled 404 body logs 408 client_closed", async () => {
+test("a client leaving during a stalled 404 body logs 408 client_closed", async () => {
   const { clock } = manualClock();
   const client = new AbortController();
   const { chat, calls, slots, logs } = harness({
@@ -657,7 +657,7 @@ test("#47 a client leaving during a stalled 404 body logs 408 client_closed", as
   assert.match(logs.at(-1)!, /"code":"client_closed"/);
 });
 
-test("#47 upstream 404 naming the requested model stays 400 upstream_rejected", async () => {
+test("upstream 404 naming the requested model stays 400 upstream_rejected", async () => {
   const { chat } = harness({
     reply: () =>
       new Response("could not find suitable handler for qwen3-8b", {
@@ -669,7 +669,7 @@ test("#47 upstream 404 naming the requested model stays 400 upstream_rejected", 
   assert.equal((await res.json()).code, "upstream_rejected");
 });
 
-test("#47 upstream 429 passes through as 429 with its Retry-After", async () => {
+test("upstream 429 passes through as 429 with its Retry-After", async () => {
   const { chat } = harness({
     reply: () =>
       new Response("busy", { status: 429, headers: { "retry-after": "30" } }),
@@ -682,7 +682,7 @@ test("#47 upstream 429 passes through as 429 with its Retry-After", async () => 
   assert.deepEqual(body.data, { upstream_status: 429 });
 });
 
-test("#47 upstream 413 maps to 413 payload_too_large", async () => {
+test("upstream 413 maps to 413 payload_too_large", async () => {
   const { chat } = harness({
     reply: () => new Response("too big", { status: 413 }),
   });
@@ -693,7 +693,7 @@ test("#47 upstream 413 maps to 413 payload_too_large", async () => {
   assert.deepEqual(body.data, { upstream_status: 413 });
 });
 
-test("#50 every relay deadline is under Cloudflare's 100 s origin timeout", async () => {
+test("every relay deadline is under a reverse proxy's 100 s origin timeout", async () => {
   const armed: number[] = [];
   const clock: Clock = {
     now: () => 0,
@@ -704,7 +704,7 @@ test("#50 every relay deadline is under Cloudflare's 100 s origin timeout", asyn
   };
   const { chat } = harness({ clock });
   assert.equal((await chat(ask())).status, 200);
-  // The upstream deadline itself, not only the 30 s body timer (hub #64).
+  // The upstream deadline itself, not only the 30 s body timer.
   assert.ok(armed.includes(LLM_LIMITS.timeoutMs), `armed ${armed}`);
   assert.ok(LLM_LIMITS.timeoutMs < 100_000);
   assert.ok(
@@ -713,7 +713,7 @@ test("#50 every relay deadline is under Cloudflare's 100 s origin timeout", asyn
   );
 });
 
-// ---- review findings: hub #58 #59 #60 #62 #65 #68 ----
+// ---- review findings: model matching, 404 bodies, Retry-After, aborts ----
 
 /** A request body that sends one chunk, then waits; `fail` errors it like a client abort. */
 function dripBody() {
@@ -741,7 +741,7 @@ function sendStream(app: ReturnType<typeof harness>["app"], body: BodyInit) {
   );
 }
 
-test("#58 namesModel matches a whole model token, not a substring", () => {
+test("namesModel matches a whole model token, not a substring", () => {
   assert.equal(
     namesModel("could not find suitable handler for qwen3-8b", "qwen3-8b"),
     true,
@@ -766,7 +766,7 @@ test("hub-pr-70 namesModel never throws on a model id too long for a RegExp", ()
   assert.equal(namesModel("no handler for qwen3-8b", long), false);
 });
 
-test("#81 a model id over 256 chars is 400 invalid_request, upstream never called", async () => {
+test("a model id over 256 chars is 400 invalid_request, upstream never called", async () => {
   const max = "a".repeat(LLM_LIMITS.modelIdChars);
   const { chat, calls } = harness({
     reply: () => new Response(`no handler for ${max}`, { status: 404 }),
@@ -782,13 +782,13 @@ test("#81 a model id over 256 chars is 400 invalid_request, upstream never calle
   assert.equal((await res.json()).code, "upstream_rejected");
 });
 
-test("#81 namesModel looks at no more than 64 occurrences", () => {
+test("namesModel looks at no more than 64 occurrences", () => {
   const miss = "qwen3-8bx ";
   assert.equal(namesModel(`${miss.repeat(63)}qwen3-8b`, "qwen3-8b"), true);
   assert.equal(namesModel(`${miss.repeat(64)}qwen3-8b`, "qwen3-8b"), false);
 });
 
-test("#73 an id after ':' or '/' is a whole token", () => {
+test("an id after ':' or '/' is a whole token", () => {
   for (const body of [
     "model_not_found:qwen3-8b",
     "/v1/models/qwen3-8b",
@@ -807,7 +807,7 @@ test("#73 an id after ':' or '/' is a whole token", () => {
   }
 });
 
-test("#83 a JSON body is decoded and its strings are searched", () => {
+test("a JSON body is decoded and its strings are searched", () => {
   const cafe = '{"error":{"message":"model caf\\u00e9 not found"}}';
   assert.equal(namesModel(cafe, "café"), true);
   assert.equal(namesModel(cafe, "caf"), false);
@@ -825,13 +825,13 @@ test("#83 a JSON body is decoded and its strings are searched", () => {
   assert.equal(namesModel('{"d":"no \\ud83d\\ude00"}', "\u{1F600}"), true);
 });
 
-test("#83 a model named only in a JSON key matches", () => {
+test("a model named only in a JSON key matches", () => {
   const body = '{"errors":{"qwen3-8b":"not loaded"}}';
   assert.equal(namesModel(body, "qwen3-8b"), true);
   assert.equal(namesModel(body, "qwen3"), false);
 });
 
-test("#83 text bodies keep the whole-token rule", () => {
+test("text bodies keep the whole-token rule", () => {
   assert.equal(namesModel("model_not_found:qwen3-8b", "qwen3-8b"), true);
   assert.equal(namesModel("qwen3-8b...", "qwen3-8b"), true);
   assert.equal(namesModel("qwen3-8b", "qwen3"), false);
@@ -845,7 +845,7 @@ test("#83 text bodies keep the whole-token rule", () => {
   );
 });
 
-test("#83 a deeply nested JSON body does not throw", () => {
+test("a deeply nested JSON body does not throw", () => {
   const deep = (inner: string) => "[".repeat(1000) + inner + "]".repeat(1000);
   assert.doesNotThrow(() => namesModel(deep('"qwen3-8b"'), "qwen3-8b"));
   // Past the depth cap nothing is searched.
@@ -855,7 +855,7 @@ test("#83 a deeply nested JSON body does not throw", () => {
   assert.equal(namesModel(body, "qwen3-8b"), true);
 });
 
-test("#83 a truncated text body cut right after the id does not match", () => {
+test("a truncated text body cut right after the id does not match", () => {
   assert.equal(namesModel("no handler for qwen3-8b", "qwen3-8b", true), false);
   assert.equal(
     namesModel('{"error":"no handler for qwen3-8b', "qwen3-8b", true),
@@ -867,7 +867,7 @@ test("#83 a truncated text body cut right after the id does not match", () => {
   );
 });
 
-test("#75 an ellipsis or doubled period after the id still matches", () => {
+test("an ellipsis or doubled period after the id still matches", () => {
   assert.equal(namesModel("no handler for qwen3-8b...", "qwen3-8b"), true);
   assert.equal(namesModel("no handler for qwen3-8b..", "qwen3-8b"), true);
   assert.equal(namesModel("no handler for qwen3-8b:: x", "qwen3-8b"), true);
@@ -875,7 +875,7 @@ test("#75 an ellipsis or doubled period after the id still matches", () => {
   assert.equal(namesModel("no handler for qwen3::x", "qwen3"), false);
 });
 
-test("#80 a match running into a cut body does not count", () => {
+test("a match running into a cut body does not count", () => {
   assert.equal(namesModel("no handler for qwen3", "qwen3", true), false);
   assert.equal(namesModel("no handler for qwen3..", "qwen3", true), false);
   assert.equal(namesModel("no handler for qwen3 x", "qwen3", true), true);
@@ -887,7 +887,7 @@ for (const [model, tail, split] of [
   ["qwen3", "qwen3-8b", 0],
   ["caf", "café", 1],
 ] as const) {
-  test(`#80 a 404 cut at 64 KiB inside "${tail}" is 502 for model ${model}`, async () => {
+  test(`a 404 cut at 64 KiB inside "${tail}" is 502 for model ${model}`, async () => {
     const enc = new TextEncoder();
     const head = enc.encode(`no handler for ${tail}`);
     const read = enc.encode(`no handler for ${model}`).length + split;
@@ -905,12 +905,12 @@ for (const [model, tail, split] of [
 }
 
 // A body of exactly 64 KiB is whole, so an id at its very end still counts;
-// one byte more and the first 64 KiB is a cut body again (#90).
+// one byte more and the first 64 KiB is a cut body again.
 for (const [extra, status, code] of [
   ["", 400, "upstream_rejected"],
   [" ", 502, "upstream_error"],
 ] as const) {
-  test(`#90 a 404 of 64 KiB + ${extra.length} ending in the id is ${status}`, async () => {
+  test(`a 404 of 64 KiB + ${extra.length} ending in the id is ${status}`, async () => {
     const enc = new TextEncoder();
     const head = enc.encode("no handler for qwen3-8b");
     const pad = enc.encode(
@@ -928,7 +928,7 @@ for (const [extra, status, code] of [
   });
 }
 
-test("#58 a 404 page not found is 502 even for a model named page", async () => {
+test("a 404 page not found is 502 even for a model named page", async () => {
   const { chat } = harness({
     reply: () => new Response("404 page not found", { status: 404 }),
   });
@@ -937,7 +937,7 @@ test("#58 a 404 page not found is 502 even for a model named page", async () => 
   assert.equal((await res.json()).code, "upstream_error");
 });
 
-test("#59 an endless upstream 404 body is read only to 64 KiB", async () => {
+test("an endless upstream 404 body is read only to 64 KiB", async () => {
   let pulled = 0;
   const chunk = new TextEncoder().encode("x".repeat(16 * 1024));
   const { chat } = harness({
@@ -964,7 +964,7 @@ test("#59 an endless upstream 404 body is read only to 64 KiB", async () => {
   );
 });
 
-test("#60 #76 upstreamRetryAfter holds whole seconds and an HTTP date to 1..3600, else 1", () => {
+test("upstreamRetryAfter holds whole seconds and an HTTP date to 1..3600, else 1", () => {
   const now = Date.parse("Wed, 30 Sep 2026 12:00:00 GMT");
   assert.equal(upstreamRetryAfter("30", now), "30");
   assert.equal(upstreamRetryAfter("0", now), "1");
@@ -983,7 +983,7 @@ test("#60 #76 upstreamRetryAfter holds whole seconds and an HTTP date to 1..3600
   );
 });
 
-test("#60 an upstream 429 with a garbage Retry-After sends 1", async () => {
+test("an upstream 429 with a garbage Retry-After sends 1", async () => {
   const { chat } = harness({
     reply: () =>
       new Response("busy", {
@@ -996,7 +996,7 @@ test("#60 an upstream 429 with a garbage Retry-After sends 1", async () => {
   assert.equal(res.headers.get("retry-after"), "1");
 });
 
-test("#62 #65 a body read timeout frees the slot and logs request_timeout", async () => {
+test("a body read timeout frees the slot and logs request_timeout", async () => {
   const { clock, fire } = manualClock();
   const { app, slots, logs } = harness({ clock });
   const drip = dripBody();
@@ -1011,7 +1011,7 @@ test("#62 #65 a body read timeout frees the slot and logs request_timeout", asyn
   assert.match(logs.at(-1)!, /"status":408,"code":"request_timeout"/);
 });
 
-test("#62 #65 a client abort mid-upload frees the slot and logs client_closed, not a 500", async () => {
+test("a client abort mid-upload frees the slot and logs client_closed, not a 500", async () => {
   const { clock } = manualClock();
   const { app, slots, logs, calls } = harness({ clock });
   const drip = dripBody();
@@ -1026,14 +1026,14 @@ test("#62 #65 a client abort mid-upload frees the slot and logs client_closed, n
   assert.match(logs.at(-1)!, /"status":408,"code":"client_closed"/);
 });
 
-test("#62 a too-large body logs payload_too_large", async () => {
+test("a too-large body logs payload_too_large", async () => {
   const { chat, logs } = harness({});
   const res = await chat(ask({ pad: "x".repeat(LLM_LIMITS.bodyBytes) }));
   assert.equal(res.status, 413);
   assert.match(logs.at(-1)!, /"status":413,"code":"payload_too_large"/);
 });
 
-test("#68 #77 models: upstream 429 maps like chat; 413, 404 and 400 are 502", async () => {
+test("models: upstream 429 maps like chat; 413, 404 and 400 are 502", async () => {
   const cases: [Response, number, string, string | null][] = [
     [
       new Response("", { status: 429, headers: { "retry-after": "7" } }),

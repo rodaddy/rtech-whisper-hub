@@ -1,5 +1,6 @@
-// Remote MCP: the desktop rtw tools (rtech-whisper tools/rtw/src/mcp.ts) served
-// over Streamable HTTP from the hub's own store, so an agent reaches notes
+// Remote MCP: the desktop rtw tools (ported from the desktop app,
+// github.com/rodaddy/openwhispr, branch rtech-whisper: tools/rtw/src/mcp.ts)
+// served over Streamable HTTP from the hub's own store, so an agent reaches notes
 // without the Mac app running. Stateless: every POST gets a fresh server and
 // transport. Tool names, inputs, and output text mirror rtw; ids are hub UUID
 // strings where rtw has SQLite integers. Like rtw there is no delete tool, so an

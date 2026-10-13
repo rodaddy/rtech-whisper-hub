@@ -1,9 +1,10 @@
 /**
  * Adaptive silence trim, ported from the desktop's trimSilence
- * (rtech-whisper src/helpers/silenceTrim.js). The desktop works in bytes of a
- * 16 kHz PCM16 buffer; this works in samples, which is the same arithmetic
- * (byte counts are sample counts x 2). Keep the constants in lockstep with the
- * desktop: test/voice-trim.test.ts pins numbers produced by the desktop code.
+ * (github.com/rodaddy/openwhispr, branch rtech-whisper:
+ * src/helpers/silenceTrim.js). The desktop works in bytes of a 16 kHz PCM16
+ * buffer; this works in samples, which is the same arithmetic (byte counts
+ * are sample counts x 2). Keep the constants in lockstep with the desktop:
+ * test/voice-trim.test.ts pins numbers produced by the desktop code.
  *
  * The speech threshold adapts to the recording because a real mic's
  * "silence" is room noise, not zero: max(MIN_SPEECH_RMS, NOISE_FACTOR x the

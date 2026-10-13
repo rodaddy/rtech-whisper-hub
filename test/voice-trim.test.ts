@@ -46,7 +46,8 @@ const HUM: Segment[] = [
 ];
 
 // Pinned numbers come from running the DESKTOP trimSilence
-// (rtech-whisper origin/main src/helpers/silenceTrim.js) once, under node 24,
+// (ported from the desktop app, github.com/rodaddy/openwhispr, branch rtech-whisper:
+// src/helpers/silenceTrim.js) once, under node 24,
 // on the same synth() output wrapped by the desktop makePcmWav. sha is the
 // sha256 of the trimmed PCM bytes (the desktop WAV minus its 44-byte header).
 const DESKTOP = {

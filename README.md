@@ -1,6 +1,7 @@
 # rtech-whisper-hub
 
 A small self-hosted server for a dictation app. The desktop app (rtech-whisper,
+the `rtech-whisper` branch of [rodaddy/openwhispr](https://github.com/rodaddy/openwhispr),
 a fork of [OpenWhispr](https://github.com/OpenWhispr/openwhispr)) and a native
 iPhone app both talk to it. It does four jobs:
 
@@ -25,10 +26,11 @@ in its divergence table.
 
 ## Status
 
-This runs in production for one person's devices (a desktop and an iPhone)
-behind a reverse proxy with SSO in front of `/admin`. It has not been run by
-anyone else. There is no multi-tenant hardening beyond per-owner row
-isolation, no web UI, and no account system: an admin mints keys.
+It runs on the author's own devices (a desktop and an iPhone) behind a
+reverse proxy with SSO in front of `/admin`. That proxy and SSO configuration
+is not part of this repo. It has not been run by anyone else. There is no
+multi-tenant hardening beyond per-owner row isolation, no web UI, and no
+account system: an admin mints keys.
 
 ## Layout
 
@@ -73,6 +75,10 @@ Migrations in `drizzle/` run on startup and are forward-only.
 | `LLM_UPSTREAM_URL` | no | `VOICE_UPSTREAM_URL` | Root for the LLM relay |
 | `LLM_UPSTREAM_API_KEY` | no | - | Bearer for the LLM relay upstream |
 | `LLM_MODEL_ALLOWLIST` | no | all | Comma-separated model ids the relay accepts |
+
+The default owner id `rico` is the author's; set `HUB_OWNER_ID` to any id you
+like. Migration 0002 backfills rows that existed before owners to `rico`, and
+the migration runs forward only.
 
 The server voice has the id `skippy` (the name of the author's assistant
 persona). No voice clip ships in this repo: bring your own reference recording

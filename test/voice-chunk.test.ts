@@ -56,7 +56,8 @@ test("rejects overlap that is not shorter than the chunk", () => {
 });
 
 // Expected outputs pinned from running the desktop mergeChunkTexts
-// (rtech-whisper origin/main src/helpers/selfHostedDictationTranscription.js) under node.
+// (ported from the desktop app, github.com/rodaddy/openwhispr, branch
+// rtech-whisper: src/helpers/selfHostedDictationTranscription.js) under node.
 test("merge drops the overlap exactly as the desktop does", () => {
   assert.equal(
     mergeChunkTexts([
@@ -78,7 +79,8 @@ test("merge drops the overlap exactly as the desktop does", () => {
 });
 
 // Expected outputs pinned from running the desktop collapseRepeatedSentences
-// (rtech-whisper origin/main src/helpers/transcriptRepetition.js) under node.
+// (ported from the desktop app, github.com/rodaddy/openwhispr, branch
+// rtech-whisper: src/helpers/transcriptRepetition.js) under node.
 test("collapse matches the desktop output", () => {
   const cases: Array<[string, string]> = [
     ["Thank you. Thank you. Thank you.", "Thank you."],

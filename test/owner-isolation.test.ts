@@ -8,7 +8,7 @@ import type { Db } from "../src/db/client.ts";
 import { mintDevice } from "../src/keys.ts";
 import { testDb } from "./helpers.ts";
 
-// hub#110 acceptance test: a key sees and changes only its own owner's rows.
+// Acceptance test: a key sees and changes only its own owner's rows.
 
 const ADMIN = "admin-token-for-tests-0123456789abcdef";
 const quiet = pino(

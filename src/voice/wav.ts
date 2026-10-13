@@ -1,6 +1,7 @@
 /**
  * RIFF WAV parsing and building for 16-bit PCM. Ported from the desktop's
- * findWavData/makePcmWav (rtech-whisper src/helpers/selfHostedDictationTranscription.js),
+ * findWavData/makePcmWav (github.com/rodaddy/openwhispr, branch rtech-whisper:
+ * src/helpers/selfHostedDictationTranscription.js),
  * widened to read the fmt chunk so the hub can reject audio it cannot trim.
  */
 

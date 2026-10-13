@@ -14,9 +14,10 @@ only. The decision (2026-09-29) was to use the upstream subset, stay as close to
 it as possible, and diverge only where the Swift client or the hub genuinely
 needs to. Every divergence goes in section 9.
 
-The sync endpoints were mapped from the desktop's sync engine
-(`src/services/SyncService.ts` and the services it calls) at
-`rtech-whisper` `8ce7c33e`.
+The sync endpoints were mapped from the desktop app's sync engine
+(`src/services/SyncService.ts` and the services it calls) in
+[github.com/rodaddy/openwhispr](https://github.com/rodaddy/openwhispr), branch
+`rtech-whisper`.
 
 Upstream's own server is not public. Where this doc states server behavior, it
 is inferred from what the desktop client sends and how it reacts, so the hub
@@ -274,11 +275,11 @@ further than that.
 
 ## 9. Divergences from upstream
 
-| # | Where | What differs | Why | Issue |
-| --- | --- | --- | --- | --- |
-| 1 | Voice relay (section 10) | Not an upstream OpenWhispr surface. Shaped on OpenAI's transcription API and the desktop's OmniVoice client | So the desktop only changes its base URL and key | hub #3 |
-| 2 | LLM relay (section 11) | Not an upstream OpenWhispr surface. OpenAI chat-completions shape, passed through to llama-swap | One route for phone and Mac, reachable away from home | hub #32 |
-| 3 | Cursors (section 8) | Clients store every delta cursor 60 s back and drop the stored `since_id`, each taken from the client's clock at the start of the pass; the hub rolls back a write still uncommitted 20 s after its first stamp (`503 stamp_budget_exceeded`), leaving COMMIT 10 s of a 30 s visibility bound. Wire shapes are unchanged | The hub stamps a row before it commits, so a strict `since` could skip a late-committing row for good | hub #94 |
+| # | Where | What differs | Why |
+| --- | --- | --- | --- |
+| 1 | Voice relay (section 10) | Not an upstream OpenWhispr surface. Shaped on OpenAI's transcription API and the desktop's OmniVoice client | So the desktop only changes its base URL and key |
+| 2 | LLM relay (section 11) | Not an upstream OpenWhispr surface. OpenAI chat-completions shape, passed through to llama-swap | One route for phone and Mac, reachable away from home |
+| 3 | Cursors (section 8) | Clients store every delta cursor 60 s back and drop the stored `since_id`, each taken from the client's clock at the start of the pass; the hub rolls back a write still uncommitted 20 s after its first stamp (`503 stamp_budget_exceeded`), leaving COMMIT 10 s of a 30 s visibility bound. Wire shapes are unchanged | The hub stamps a row before it commits, so a strict `since` could skip a late-committing row for good |
 
 ## 10. Voice relay
 
@@ -426,7 +427,7 @@ The three URLs are relative to `<hub>/api/voice/`. `transcriptions` is the route
 
 ## 11. LLM relay
 
-The hub forwards OpenAI-style chat completions to llama-swap, so the iPhone and the desktop use one route for AI cleanup, titles, enhancement and chat, at home or away. Decided 2026-09-29 (hub #32). Clients use the base URL `<hub>/api/llm/v1` with any OpenAI-compatible client.
+The hub forwards OpenAI-style chat completions to llama-swap, so the iPhone and the desktop use one route for AI cleanup, titles, enhancement and chat, at home or away. Decided 2026-09-29. Clients use the base URL `<hub>/api/llm/v1` with any OpenAI-compatible client.
 
 Auth: `Authorization: Bearer <device key>`, the same as section 1. 401 on a missing, unknown or revoked key. The hub calls upstream with its own optional key. A client key is never forwarded. The relay is open to every device key of every owner; it has no owner check.
 
@@ -454,7 +455,7 @@ Every value below is a v1 starting value, tuned from real traffic.
 | Request body read | 30 s | 408 request_timeout |
 | Rate | token bucket, 60 req/min, burst 10; chat and models share it; checked before the body is read, so a request refused later (bad body, 413, 408, or the client disconnecting mid-body) still spends its token | 429 rate_limited + Retry-After |
 | In flight | 2 chat requests; the slot is taken before the body is read, so a pending body read holds it (up to the 30 s read limit: two stalled uploads refuse a third request for up to 30 s); a stream holds its slot until it ends or the client disconnects | 429 rate_limited + Retry-After: 1 |
-| Upstream timeout, non-stream | 90 s for the whole call, under Cloudflare's 100 s origin timeout on the public path | 504 upstream_timeout |
+| Upstream timeout, non-stream | 90 s for the whole call, under the 100 s origin timeout common on reverse proxies | 504 upstream_timeout |
 | Upstream timeout, stream | 90 s to response headers, then 60 s idle between chunks | 504 before the stream starts; the final SSE error event after |
 | Upstream timeout, models | 15 s | 504 upstream_timeout |
 
@@ -489,5 +490,4 @@ Prompts, messages and completions exist only in memory for the length of the req
   - `/api/notes/:id/share`, `/api/notes/:id/access`
   - `/api/v1/keys/*`, `/api/auth/*`
   - `/api/notes/search`, `/api/notes/delete-all`
-- The MCP (hub #5)
-  gets its own section when that issue lands.
+- The MCP endpoint (`src/mcp.ts`) is not specified in this document.

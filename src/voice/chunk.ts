@@ -1,4 +1,4 @@
-// Ported from the desktop sibling rtech-whisper (an OpenWhispr fork):
+// Ported from the desktop app (github.com/rodaddy/openwhispr, branch rtech-whisper):
 // src/helpers/selfHostedDictationTranscription.js (splitWav, mergeChunkTexts)
 // and src/helpers/transcriptRepetition.js (collapseRepeatedSentences).
 // Works on mono 16-bit PCM samples; WAV framing is someone else's job.

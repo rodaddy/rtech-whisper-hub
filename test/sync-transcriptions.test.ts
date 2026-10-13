@@ -201,7 +201,7 @@ test("a mixed batch-delete returns each live id once and leaves tombstones untou
 });
 
 // PGlite is one connection, so two overlapping batch-deletes cannot race here
-// and no behavioural test can catch a 40P01 regression (#52, #71). Pin the SQL
+// and no behavioural test can catch a 40P01 regression. Pin the SQL
 // shape instead: an id-ordered SELECT ... FOR UPDATE, then the UPDATE, both
 // inside one transaction.
 test("batch-delete pre-locks rows in id order before the UPDATE, in one transaction", async () => {
@@ -247,7 +247,7 @@ test("batch-delete pre-locks rows in id order before the UPDATE, in one transact
   );
   assert.match(log[2], /^update "transcriptions" set /);
   assert.equal(log[3], "COMMIT");
-  // The lock must cover exactly the rows the UPDATE touches (#84): a narrower
+  // The lock must cover exactly the rows the UPDATE touches: a narrower
   // lock predicate would let overlapping batch-deletes lock in plan order again.
   const whereOf = (sqlText: string) =>
     sqlText
@@ -258,7 +258,7 @@ test("batch-delete pre-locks rows in id order before the UPDATE, in one transact
   const lockWhere = whereOf(log[1]);
   assert.ok(lockWhere, log[1]);
   assert.equal(lockWhere, whereOf(log[2]), log.join("\n"));
-  // Same shape is not enough: the lock must bind the same ids too (#87). The
+  // Same shape is not enough: the lock must bind the same ids too. The
   // input has a duplicate and a non-UUID, so raw ids differ from the filtered
   // set. The UPDATE's SET params come first; its WHERE params start at the
   // first placeholder after " where ".

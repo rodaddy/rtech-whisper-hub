@@ -1,5 +1,5 @@
 // The OpenAI-shaped speech route, the voices list and the discovery document
-// (rtech-whisper-hub#133), through createApp so the shared synthesis budget
+// through createApp so the shared synthesis budget
 // and the device auth are the real wiring.
 import assert from "node:assert/strict";
 import { Writable } from "node:stream";
