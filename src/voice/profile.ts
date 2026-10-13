@@ -1,7 +1,8 @@
 /**
  * Skippy's server-side voice profile: the reference clip (ref.wav) and its
  * transcript (ref.txt) that OmniVoice clones from. Ported from the desktop
- * sibling's load_voice_profile (rtech-whisper server/agent/src/voice_agent/config.py).
+ * app's load_voice_profile (github.com/rodaddy/openwhispr, branch rtech-whisper:
+ * server/agent/src/voice_agent/config.py).
  * Load it once at startup and hand the result to the synthesis route.
  */
 import { readFile } from "node:fs/promises";

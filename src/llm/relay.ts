@@ -31,17 +31,17 @@ export const LLM_LIMITS = {
   bodyBytes: 1024 * 1024,
   /**
    * Whole-request bound for a non-stream call, and time to first byte for a
-   * stream. Under Cloudflare's 100 s origin timeout, so a slow upstream gets
-   * the hub's 504 and not Cloudflare's 524 HTML page (hub #50).
+   * stream. Kept under the 100 s origin timeout common on reverse proxies, so
+   * a slow upstream gets the hub's 504 and not a proxy's own timeout page.
    */
   timeoutMs: 90_000,
   /** Longest gap between two chunks of a stream. */
   streamIdleMs: 60_000,
   /** The models list is small and cheap. */
   modelsTimeoutMs: 15_000,
-  /** How much of an upstream 404 body is read to look for the model (hub #59). */
+  /** How much of an upstream 404 body is read to look for the model. */
   notFoundBodyBytes: 64 * 1024,
-  /** Longest model id the chat route accepts, in UTF-16 units (hub #81). */
+  /** Longest model id the chat route accepts, in UTF-16 units. */
   modelIdChars: 256,
   /** Longest upstream Retry-After the hub passes on, in seconds. */
   retryAfterMaxSeconds: 3600,
@@ -131,18 +131,18 @@ const ID_TAIL = String.raw`[\p{L}\p{N}_/@+\-]`;
 /**
  * What may not come just before a match (one code point, maybe a pair): a
  * letter, digit, "_", ".", "-", "@" or "+". A ":" or "/" may ("models/x",
- * "model_not_found:x"), so "x" is found in "org/x" too (hub #73).
+ * "model_not_found:x"), so "x" is found in "org/x" too.
  */
 const ID_BEFORE = /[\p{L}\p{N}_.@+\-]$/u;
-/** What may not follow a match: an id character, or "."s/":"s and one (hub #75). */
+/** What may not follow a match: an id character, or "."s/":"s and one. */
 const ID_AFTER = new RegExp(`(?:${ID_TAIL}|[.:]+${ID_TAIL})`, "uy");
-/** Only "."s and ":"s up to the end of the text (hub #80). */
+/** Only "."s and ":"s up to the end of the text. */
 const DOTS_TO_END = /[.:]*$/y;
-/** Occurrences of the id namesModel looks at before giving up (hub #81). */
+/** Occurrences of the id namesModel looks at before giving up. */
 const MAX_OCCURRENCES = 64;
-/** Nesting namesModel walks into in a JSON body (hub #83). */
+/** Nesting namesModel walks into in a JSON body. */
 const MAX_JSON_DEPTH = 32;
-/** Strings (values and keys) namesModel collects from a JSON body (hub #83). */
+/** Strings (values and keys) namesModel collects from a JSON body. */
 const MAX_JSON_STRINGS = 10_000;
 
 /**
@@ -176,8 +176,8 @@ function jsonStrings(value: unknown): string[] {
  * Whether `text` holds `model` as a whole token, looking at no more than
  * `budget.left` occurrences in all. The id is found with indexOf and only its
  * edges go through a regex: a RegExp built from a client-supplied id throws
- * once the id passes 32767 chars (hub PR #70 review). The shared cap keeps a
- * periodic body from making the scan quadratic (hub #81).
+ * once the id passes 32767 chars. The shared cap keeps a
+ * periodic body from making the scan quadratic.
  */
 function tokenIn(
   text: string,
@@ -206,10 +206,10 @@ function tokenIn(
  * not match inside "qwen3-8b", and "4" not inside "404". A trailing "." or
  * ":" still ends the token ("... qwen3-8b.", "qwen3-8b..."). A JSON body is
  * decoded and its string values and keys are searched, so JSON escapes are
- * JSON.parse's business (hub #83); any other body is searched as text. The
+ * JSON.parse's business; any other body is searched as text. The
  * router's bare "404 page not found" names no model, whatever the id.
  * `truncated` says the body was cut at the read cap: it is searched as text,
- * and a match running into the cut does not count (hub #80).
+ * and a match running into the cut does not count.
  */
 export function namesModel(
   body: string,
@@ -231,8 +231,8 @@ export function namesModel(
 }
 
 /**
- * The Retry-After to pass on from an upstream 429 (hub #60): whole seconds as
- * held to 1..3600 (hub #76), an IMF-fixdate turned into seconds from now and
+ * The Retry-After to pass on from an upstream 429: whole seconds as
+ * held to 1..3600, an IMF-fixdate turned into seconds from now and
  * held the same way, else "1".
  */
 export function upstreamRetryAfter(raw: string | null, nowMs: number): string {
@@ -310,9 +310,9 @@ function abortRace(signal: AbortSignal) {
 }
 
 /**
- * Reads at most `max` bytes of the body as text, then cancels the rest (hub
- * #59). `truncated` says the body is longer than `max`; a
- * character cut at the cap is dropped, not decoded as U+FFFD (hub #80).
+ * Reads at most `max` bytes of the body as text, then cancels the rest.
+ * `truncated` says the body is longer than `max`; a character cut at the cap
+ * is dropped, not decoded as U+FFFD.
  */
 async function readHead(
   res: Response,
@@ -328,7 +328,7 @@ async function readHead(
   let size = 0;
   try {
     // Read one byte past `max`, so a body of exactly `max` bytes is seen to
-    // end and is not reported as truncated (hub #90).
+    // end and is not reported as truncated.
     while (size <= max) {
       const step = await Promise.race([reader.read(), race.aborted]);
       if (step.done) return { text: text + dec.decode(), truncated: false };
@@ -389,7 +389,7 @@ export function llmRoutes(deps: LlmDeps) {
     return h;
   };
 
-  /** The Retry-After header for an upstream 429, per protocol 11.4 (hub #60). */
+  /** The Retry-After header for an upstream 429, per protocol 11.4. */
   const upstreamRetry = (res: Response) =>
     res.status === 429
       ? {
@@ -426,7 +426,7 @@ export function llmRoutes(deps: LlmDeps) {
   };
 
   // Run inside the handler, after admission, so an over-limit key is refused
-  // before the hub buffers up to 1 MB of its body (hub #46).
+  // before the hub buffers up to 1 MB of its body.
   const bodyReader = readBody({
     maxSize: LLM_LIMITS.bodyBytes,
     clock,
@@ -482,7 +482,7 @@ export function llmRoutes(deps: LlmDeps) {
           read = true;
         });
       } catch {
-        // The client went away mid-upload: the body read throws (hub #62).
+        // The client went away mid-upload: the body read throws.
         return fail(
           new RelayError(408, "client_closed", "client closed the request"),
         );
@@ -555,7 +555,7 @@ export function llmRoutes(deps: LlmDeps) {
             "content-type": "application/json",
           },
           // Re-serialised, not the client's bytes: a body with two "model"
-          // keys forwards only the one validated above (hub #42). Every
+          // keys forwards only the one validated above. Every
           // field still reaches upstream.
           body: JSON.stringify(body),
           signal,
@@ -823,8 +823,8 @@ export function llmRoutes(deps: LlmDeps) {
       }
       log.upstream_status = res.status;
       if (!res.ok) {
-        // 429 maps as on chat (hub #68); anything else is 502, a 413 too:
-        // a GET has no body to be too large (hub #77).
+        // 429 maps as on chat; anything else is 502, a 413 too:
+        // a GET has no body to be too large.
         await res.body?.cancel().catch(() => {});
         return fail(
           res.status === 429

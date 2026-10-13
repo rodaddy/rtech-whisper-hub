@@ -1,4 +1,4 @@
-// The speech route as a stock client sees it (rtech-whisper-hub#133): the
+// The speech route as a stock client sees it: the
 // official openai SDK, pointed at the hub's voice base URL with a device key,
 // against a stubbed voice server. No listener is started; the SDK's fetch is
 // app.fetch.
