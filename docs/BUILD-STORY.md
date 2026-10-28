@@ -3,7 +3,7 @@
 Sources for this page: the private development repository's history (99
 commits, 56 non-merge commits up to the 2026-10-13 export), its issues and pull
 requests, `docs/protocol.md` and the test suite. This public repository holds
-the export only, so its own `git log` is three commits.
+the export only, so its own `git log` starts at that export.
 
 ## The problem and the first version (2026-09-29)
 
