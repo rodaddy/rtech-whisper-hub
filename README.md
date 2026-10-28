@@ -141,8 +141,8 @@ their own get a 503.
 | ------------------------------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | `GET /healthz`                              | none                                      | `200 {"ok":true}` or `503 {"ok":false}`                                                                  |
 | `GET /api/whoami`                           | `Authorization: Bearer <device key>`      | `200 {"device":{"id","name"}}` or `401`                                                                  |
-| `POST /admin/devices`                       | `Authorization: Bearer <HUB_ADMIN_TOKEN>` | body `{"name":"..."}` (1-100 chars) -> `201 {"device":{"id","name","prefix"},"key":"rtw_..."}`, or `400` |
-| `GET /admin/devices`                        | `Authorization: Bearer <HUB_ADMIN_TOKEN>` | `200 {"devices":[{"id","name","prefix","created_at","last_used_at","revoked_at"}]}`                      |
+| `POST /admin/devices`                       | `Authorization: Bearer <HUB_ADMIN_TOKEN>` | body `{"name":"...","owner":"..."}` (each 1-100 chars, `owner` optional, default `HUB_OWNER_ID`) -> `201 {"device":{"id","name","prefix","owner_id"},"key":"rtw_..."}`, or `400` |
+| `GET /admin/devices`                        | `Authorization: Bearer <HUB_ADMIN_TOKEN>` | `200 {"devices":[{"id","name","prefix","owner_id","created_at","last_used_at","revoked_at"}]}`                      |
 | `POST /admin/devices/<id-or-prefix>/revoke` | `Authorization: Bearer <HUB_ADMIN_TOKEN>` | `200 {"revoked":true}`, or `404` when no active device matched                                           |
 
 Errors are `{"error":{"message":...},"code":...}` with code `unauthorized`
