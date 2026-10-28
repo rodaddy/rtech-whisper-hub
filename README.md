@@ -1,65 +1,115 @@
 # rtech-whisper-hub
 
-A small self-hosted server for a dictation app. The desktop app (rtech-whisper,
-the `rtech-whisper` branch of [rodaddy/openwhispr](https://github.com/rodaddy/openwhispr),
-a fork of [OpenWhispr](https://github.com/OpenWhispr/openwhispr)) and a native
-iPhone app both talk to it. It does four jobs:
+The self-hosted server behind rTech Whisper: device keys, note and history
+sync, and a relay to your own speech and language models, for a desktop
+dictation app and its iPhone companion.
 
-- issues per-device API keys
-- relays speech-to-text, voice synthesis, and OpenAI-style chat completions to
-  an inference host you run (llama-swap or anything OpenAI-compatible)
-- syncs notes, folders, dictionary words, snippets, and transcriptions between
-  devices, using the sync protocol of upstream OpenWhispr's personal scope
-- serves a remote MCP endpoint so agents (Claude Code, Codex) can read and
-  write notes
+[![CI](https://github.com/rodaddy/rtech-whisper-hub/actions/workflows/ci.yml/badge.svg)](https://github.com/rodaddy/rtech-whisper-hub/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![TypeScript on Node 24](https://img.shields.io/badge/TypeScript-Node%2024-3178c6.svg)
 
-TypeScript on Node 24 (native type stripping, no build step), Hono, Drizzle,
-Postgres.
+![rtech-whisper-hub: one authenticated server between your devices and your own inference host](docs/images/hero.jpg)
+
+## What it is
+
+rtech-whisper-hub is the backend half of rTech Whisper. Two clients talk to
+it: the desktop app (the `rtech-whisper` branch of
+[rodaddy/openwhispr](https://github.com/rodaddy/openwhispr), a fork of
+[OpenWhispr](https://github.com/OpenWhispr/openwhispr)) and the native
+[iPhone app](https://github.com/rodaddy/rtech-whisper-ios). It does four jobs:
+
+- issues per-device API keys;
+- syncs notes, folders, dictionary words, snippets and transcriptions between
+  devices, using the sync protocol of upstream OpenWhispr's personal scope;
+- relays speech-to-text, voice synthesis and OpenAI-style chat completions to
+  an inference host you run (llama-swap or anything OpenAI-compatible);
+- serves a remote MCP endpoint so coding agents (Claude Code, Codex) can read
+  and write notes.
+
+TypeScript on Node 24 (native type stripping, no build step), Hono, Drizzle
+and Postgres.
 
 ## Why it exists
 
-OpenWhispr's own sync server is not public. This hub reimplements the subset
-the clients need, so one person's devices can share notes and reach a home
-inference box through one authenticated URL, at home or away. The wire
-contract is `docs/protocol.md`; every place it differs from upstream is listed
-in its divergence table.
+OpenWhispr's own sync server is not public, and its phone client is tied to
+its cloud. This hub reimplements the subset the clients need, so one person's
+devices share notes and reach a home inference box through one authenticated
+URL, at home or away, without sending audio or notes to a third-party service.
 
-## Status
+## How it works
 
-It runs on the author's own devices (a desktop and an iPhone) behind a
-reverse proxy with SSO in front of `/admin`. That proxy and SSO configuration
-is not part of this repo. It has not been run by anyone else. There is no
-multi-tenant hardening beyond per-owner row isolation, no web UI, and no
-account system: an admin mints keys.
+![How rtech-whisper-hub works](docs/images/how-it-works.jpg)
 
-## Layout
+Every `/api` request carries a device key; only its SHA-256 hash and prefix
+are stored, and each key and every synced row belongs to one owner. Sync
+(`src/sync/`) follows upstream's pull/push model: the hub stamps each write,
+clients pull deltas from a cursor taken at the start of a pass minus a 60 s
+lookback, and a stamp budget aborts any write that would commit too late for
+that lookback to see it. The voice relay (`src/voice/`) trims silence, cuts
+long audio into chunks, merges the transcripts, and shares one GPU semaphore
+with rate and in-flight limits; synthesis uses a server-side reference clip.
+The LLM relay (`src/llm/`) forwards OpenAI-style chat completions with a
+model allowlist. The wire contract is [docs/protocol.md](docs/protocol.md),
+and every place it differs from upstream is listed in its divergence table.
 
-| Path | What it holds |
-| --- | --- |
-| `docs/protocol.md` | The contract the apps rely on. |
-| `src/` | The service. `drizzle/` holds its forward-only migrations. |
-| `test/` | Node test runner suites; Postgres is PGlite, in process. |
-| `Dockerfile`, `docker-compose.example.yml`, `env.example` | A generic way to run it. |
+![Minting a device key and using it from the API and MCP](docs/images/terminal.png)
 
-## Run it
+*Real output: the hub running locally against a throwaway Postgres; a key
+minted with the CLI, then used for `/api/whoami` and the MCP `note_create`
+tool. The database was deleted afterwards.*
+
+## Features
+
+- Per-device keys (`rtw_` + 43 base64url chars), minted and revoked through
+  admin routes and a small CLI.
+- Sync for five kinds (notes, folders, dictionary, snippets, transcriptions)
+  with cursors, tombstones and per-owner row isolation.
+- Speech-to-text relay with silence trim, chunking, repeated-sentence collapse,
+  rate limits and a shared GPU semaphore.
+- Voice synthesis relay in the desktop's OmniVoice shape, plus an
+  OpenAI-shaped `/v1/audio/speech` route, voices list and discovery document.
+- LLM relay with a model allowlist and streamed responses.
+- Remote MCP server over Streamable HTTP: list, search, get, create and
+  update notes, list folders and transcriptions; no delete tool.
+- Forward-only Drizzle migrations that run on startup.
+
+## Quick start
+
+With Docker:
 
 ```sh
+git clone https://github.com/rodaddy/rtech-whisper-hub.git
+cd rtech-whisper-hub
 cp env.example .env               # fill in POSTGRES_PASSWORD and HUB_ADMIN_TOKEN
 cp docker-compose.example.yml docker-compose.yml
 docker compose up --build
 curl http://localhost:8096/healthz
 ```
 
-Or without containers, against a Postgres you already have:
+Without containers, against a Postgres you already have (Node 24):
 
 ```sh
 npm ci
 DATABASE_URL=postgres://... HUB_ADMIN_TOKEN=$(openssl rand -hex 32) npm start
 ```
 
-Migrations in `drizzle/` run on startup and are forward-only.
+Then mint a key for a device:
 
-## Environment
+```sh
+export HUB_URL=http://localhost:8096 HUB_ADMIN_TOKEN=...
+node src/cli.ts keys mint --name "My iPhone"
+```
+
+Tests (typecheck plus the full suite; PGlite runs Postgres in process and the
+upstreams are fakes, so no database server or GPU is needed):
+
+```sh
+npm ci && npm run check
+```
+
+## Reference
+
+### Environment
 
 | Variable | Required | Default | Meaning |
 | --- | --- | --- | --- |
@@ -80,12 +130,12 @@ The default owner id `rico` is the author's; set `HUB_OWNER_ID` to any id you
 like. Migration 0002 backfills rows that existed before owners to `rico`, and
 the migration runs forward only.
 
-The server voice has the id `skippy` (the name of the author's assistant
-persona). No voice clip ships in this repo: bring your own reference recording
+The server voice has the fixed id `skippy` in the speech API (protocol
+section 10). No voice clip ships in this repo: bring your own reference recording
 and its transcript. Without one, synthesis requests that carry no voice of
 their own get a 503.
 
-## Routes
+### Routes
 
 | Route                                       | Auth                                      | Response                                                                                                 |
 | ------------------------------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------- |
@@ -100,7 +150,7 @@ Errors are `{"error":{"message":...},"code":...}` with code `unauthorized`
 passes admin auth, and the admin token never passes `/api` auth. Admin request
 log lines carry `"admin":true` and never the token, the minted key, or bodies.
 
-## Device keys
+### Device keys
 Keys are `rtw_` plus 43 base64url characters. Only a SHA-256 hash and the
 12-character prefix are stored; the plaintext key appears once, in the mint
 response.
@@ -110,16 +160,16 @@ Manage keys with the CLI, which calls the admin routes:
 ```sh
 export HUB_URL=https://hub.example.internal   # default http://localhost:8096
 export HUB_ADMIN_TOKEN=...
-npm run keys -- mint --name "My iPhone"
-npm run keys -- list
-npm run keys -- revoke <id-or-prefix>
+node src/cli.ts keys mint --name "My iPhone"
+node src/cli.ts keys list
+node src/cli.ts keys revoke <id-or-prefix>
 ```
 
 A non-2xx response prints the status and error message to stderr and exits 1;
 wrong usage or a missing `HUB_ADMIN_TOKEN` exits 2. Put `/admin/*` behind your
 own SSO or keep it off the public route.
 
-## MCP
+### MCP
 
 `POST /mcp` serves the desktop `rtw` tools over Streamable HTTP (stateless,
 JSON responses), behind the same device-key auth as `/api`. Tools:
@@ -141,23 +191,43 @@ codex mcp add rtech-whisper-hub \
   --bearer-token-env-var RTW_HUB_KEY
 ```
 
-## Tests
-
-```sh
-npm ci && npm run check
-```
-
-Typecheck plus the full suite. Tests use PGlite (in-process Postgres) and fake
-upstreams, so no Postgres server or GPU is needed.
-
-## What it does not do
+### What it does not do
 
 - No user accounts, sharing, invitations, or the team features of upstream
   OpenWhispr's cloud (see the protocol's out-of-scope list).
 - No speech or language models of its own; it relays to a host you run.
-- No TLS termination; run it behind a reverse proxy.
+- No TLS termination; run it behind a reverse proxy, and keep `/admin/*`
+  behind your own SSO or off the public route.
 - No deploy tooling beyond the example Dockerfile and compose file.
 
-## License
+## How it was built
 
-MIT. See `LICENSE`.
+The hub went from an empty repository to a working sync, voice and MCP server
+on 2026-09-29, built by AI coding agents in parallel lanes against a written
+protocol, then hardened through review rounds over the following days. The
+phases, the protocol decisions and what review changed are in
+[docs/BUILD-STORY.md](docs/BUILD-STORY.md).
+
+## Project status
+
+Experimental, version 0.1.0. It runs on its author's own desktop and
+iPhone, behind a reverse proxy with SSO in front of `/admin` (that proxy
+configuration is not part of this repo). It has no other known deployments.
+There is no multi-tenant hardening beyond per-owner row isolation, no web UI
+and no account system: an admin mints keys.
+
+## Credits
+
+- [OpenWhispr](https://github.com/OpenWhispr/openwhispr), whose personal-scope
+  sync protocol the hub reimplements.
+- [Hono](https://hono.dev), [Drizzle ORM](https://orm.drizzle.team),
+  [PGlite](https://pglite.dev) for in-process test databases, and the
+  [MCP TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk).
+
+## Licence
+
+MIT. See [LICENSE](LICENSE).
+
+## Author
+
+Rico Rojas, https://rico-rojas.com

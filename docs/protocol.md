@@ -306,7 +306,7 @@ Processing: trim, then split into chunks of at most 25 s with 1 s overlap, send 
 Request: application/json
 `{ "text": string (1..2000 chars after trim), "audio_base64"?: string, "prompt_text"?: string }`
 - Both audio_base64 and prompt_text present: passed through (desktop custom and grill voices).
-- Both absent: the hub fills in Skippy's server-side profile (ref.wav, ref.txt). This is the iPhone path.
+- Both absent: the hub fills in the server voice profile (ref.wav, ref.txt). This is the iPhone path.
 - Only one of the two present -> 400 invalid_request.
 
 Optional render settings, each forwarded to the voice server when sent and left out when not:
@@ -365,12 +365,12 @@ Audio and text exist only in memory for the length of the request. Nothing is wr
 The desktop calls the hub first. It falls back to the inference host directly only on a network error, a timeout, or 502/503/504. It never falls back on 400, 401, 413, 415 or 429.
 
 ### 10.8 OpenAI-compatible speech
-Three routes give Skippy's voice the shape a stock OpenAI SDK expects: a client sets its base URL to `<hub>/api/voice/v1` and its API key to a device key. All three need the device key, as every `/api` route does (section 1).
+Three routes give the server voice the shape a stock OpenAI SDK expects: a client sets its base URL to `<hub>/api/voice/v1` and its API key to a device key. All three need the device key, as every `/api` route does (section 1).
 
 #### POST /api/voice/v1/audio/speech
 Request: application/json
 `{ "voice": string, "input": string, "model"?: string, "response_format"?: "wav" | "pcm", "speed"?: number }`
-- `voice` (required): `skippy`, in any letter case. It is the only voice, rendered from Skippy's server-side profile (the same one 10.2 fills in). Any other value -> 400 invalid_request.
+- `voice` (required): `skippy`, in any letter case. It is the only voice, rendered from the server voice profile (the same one 10.2 fills in). Any other value -> 400 invalid_request.
 - `input` (required): 1..2000 characters after trim. Empty -> 400 invalid_request. Longer -> 400 text_too_long.
 - `response_format` (optional): `wav` (the default) or `pcm`. Anything else -> 400 invalid_request.
 - `model` (optional): accepted and ignored. It must be a string when sent.
@@ -396,7 +396,7 @@ Errors: the statuses and codes of 10.5 that apply to synthesis.
 - 503 upstream_busy (with Retry-After: 5) | upstream_unavailable
 - 504 upstream_timeout
 
-An upstream reply that is not a linear-PCM mono 24 kHz WAV is a 502 upstream_error with `data.upstream_status`, as in 10.2. A `pcm` request whose upstream WAV passes that check but is not 16-bit is a 502 upstream_error with no `data`. With no Skippy profile configured the route answers 503 upstream_unavailable, as 10.2 does. An unknown voice is refused before the profile is looked at.
+An upstream reply that is not a linear-PCM mono 24 kHz WAV is a 502 upstream_error with `data.upstream_status`, as in 10.2. A `pcm` request whose upstream WAV passes that check but is not 16-bit is a 502 upstream_error with no `data`. With no server voice profile configured the route answers 503 upstream_unavailable, as 10.2 does. An unknown voice is refused before the profile is looked at.
 
 Every error this route writes itself carries the section 1 envelope plus two keys inside `error` that OpenAI SDKs read:
 `{ "error": { "message": string, "type": string, "code": string }, "code": string, "data"?: object }`
@@ -407,7 +407,7 @@ The 401 comes from the device-key check in front of every `/api` route, so it is
 
 #### GET /api/voice/v1/audio/voices
 Response 200, one of two answers:
-- Skippy's profile is configured: `{ "voices": [{ "id": "skippy", "name": "Skippy" }] }`
+- The server voice profile is configured: `{ "voices": [{ "id": "skippy", "name": "Skippy" }] }`
 - It is not: `{ "voices": [] }`
 
 #### GET /api/voice/.well-known/speech

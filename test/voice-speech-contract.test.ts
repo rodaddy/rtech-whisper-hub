@@ -49,7 +49,7 @@ function sdk() {
       })) as typeof globalThis.fetch,
     voiceProfile: {
       audioBase64: wav24k,
-      promptText: "Skippy the Magnificent.",
+      promptText: "This is the server voice.",
     },
   });
   return new OpenAI({

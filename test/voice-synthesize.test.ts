@@ -35,7 +35,7 @@ before(async () => {
     join(profileDir, "ref.wav"),
     makePcmWav(new Int16Array([5, 6, 7]), 24_000),
   );
-  await writeFile(join(profileDir, "ref.txt"), "  Skippy the Magnificent.\n");
+  await writeFile(join(profileDir, "ref.txt"), "  This is the server voice.\n");
   const loaded = await loadVoiceProfile(profileDir);
   assert.ok(loaded.ok);
   profile = loaded.profile;
@@ -100,7 +100,7 @@ function harness(opts: {
 }
 
 test("profile loader trims ref.txt and base64-encodes ref.wav", async () => {
-  assert.equal(profile.promptText, "Skippy the Magnificent.");
+  assert.equal(profile.promptText, "This is the server voice.");
   assert.equal(
     Buffer.from(profile.audioBase64, "base64").subarray(0, 4).toString(),
     "RIFF",
@@ -121,7 +121,7 @@ test("profile loader names missing files and an unset directory", async () => {
   }
 });
 
-test("no voice fields: the hub fills in Skippy's profile", async () => {
+test("no voice fields: the hub fills in the server voice profile", async () => {
   const h = harness({ apiKey: "up-key" });
   const res = await h.post({ text: `  ${SECRET_TEXT}  ` });
   assert.equal(res.status, 200);
@@ -137,7 +137,7 @@ test("no voice fields: the hub fills in Skippy's profile", async () => {
   assert.deepEqual(h.calls[0].body, {
     text: SECRET_TEXT,
     audio_base64: profile.audioBase64,
-    prompt_text: "Skippy the Magnificent.",
+    prompt_text: "This is the server voice.",
   });
   assert.equal(
     (h.calls[0].init.headers as Record<string, string>).authorization,
@@ -270,7 +270,7 @@ test("logs never carry text, prompt_text, or audio", async () => {
     SECRET_TEXT,
     "client prompt",
     "Y2xpZW50",
-    "Skippy the Magnificent",
+    "This is the server voice",
     wav24k,
     profile.audioBase64,
     "aaaa",
@@ -293,7 +293,7 @@ test("render settings: the four optional fields reach the upstream request", asy
   assert.deepEqual(h.calls[0].body, {
     text: "hi",
     audio_base64: profile.audioBase64,
-    prompt_text: "Skippy the Magnificent.",
+    prompt_text: "This is the server voice.",
     seed: 42,
     num_steps: 16,
     guidance_scale: 2.5,
@@ -353,7 +353,7 @@ test("no render settings: the upstream body is exactly text plus the voice", asy
 
 test("the hub's own voice: the upstream body is exactly text, the profile, then the render settings in order", async () => {
   const h = harness({});
-  const voice = `"audio_base64":${JSON.stringify(profile.audioBase64)},"prompt_text":"Skippy the Magnificent."`;
+  const voice = `"audio_base64":${JSON.stringify(profile.audioBase64)},"prompt_text":"This is the server voice."`;
   assert.equal((await h.post({ text: "hi" })).status, 200);
   assert.equal(String(h.calls[0].init.body), `{"text":"hi",${voice}}`);
   // Sent in a different order than the hub forwards them.

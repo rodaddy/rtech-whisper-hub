@@ -1,5 +1,5 @@
 /**
- * POST /voice/upstream/omnivoice/synthesize -- Skippy's voice relay
+ * POST /voice/upstream/omnivoice/synthesize -- the server voice relay
  * (docs/protocol.md sections 10.2, 10.3, 10.5, 10.6). Request and reply keep
  * the desktop's OmniVoice shape; the reply check is ported from the desktop
  * sibling's OmniVoiceTTS.synthesize_wav (server/agent/src/voice_agent/tts.py).
@@ -45,7 +45,7 @@ export interface SynthesizeDeps {
   fetch: typeof globalThis.fetch;
   clock?: Clock;
   limiters: SynthesisLimiters;
-  /** Skippy's profile, loaded once at startup; null when not configured. */
+  /** The server voice profile, loaded once at startup; null when not configured. */
   profile: VoiceProfile | null;
   getDeviceId(c: Context): string;
 }

@@ -21,7 +21,7 @@ const profile: VoiceProfile = {
   audioBase64: Buffer.from(
     makePcmWav(new Int16Array([5, 6, 7]), 24_000),
   ).toString("base64"),
-  promptText: "Skippy the Magnificent.",
+  promptText: "This is the server voice.",
 };
 
 let db: Db;
@@ -65,7 +65,7 @@ function harness(opts: { profile?: VoiceProfile | null } = {}) {
   return { post, get, calls };
 }
 
-test("voice skippy: WAV bytes, rendered from the server profile and the trimmed input", async () => {
+test("voice id skippy: WAV bytes, rendered from the server profile and the trimmed input", async () => {
   const h = harness();
   const res = await h.post({
     model: "tts-1",
@@ -145,7 +145,7 @@ test("the speech route and the 10.2 route share one rate budget", async () => {
   assert.equal((await res.json()).code, "rate_limited");
 });
 
-test("the voices list names Skippy only when the profile is configured", async () => {
+test("the voices list names the server voice only when the profile is configured", async () => {
   const withProfile = await harness().get("/api/voice/v1/audio/voices");
   assert.deepEqual(await withProfile.json(), {
     voices: [{ id: "skippy", name: "Skippy" }],
