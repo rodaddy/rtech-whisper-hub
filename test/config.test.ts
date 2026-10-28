@@ -29,12 +29,12 @@ test("voice relay settings pass through when set", () => {
     VOICE_UPSTREAM_URL: "http://gpu:8080",
     VOICE_UPSTREAM_API_KEY: "k",
     VOICE_STT_MODEL: "whisper-small",
-    VOICE_PROFILE_DIR: "/profiles/skippy",
+    VOICE_PROFILE_DIR: "/profiles/server-voice",
   });
   assert.equal(c.VOICE_UPSTREAM_URL, "http://gpu:8080");
   assert.equal(c.VOICE_UPSTREAM_API_KEY, "k");
   assert.equal(c.VOICE_STT_MODEL, "whisper-small");
-  assert.equal(c.VOICE_PROFILE_DIR, "/profiles/skippy");
+  assert.equal(c.VOICE_PROFILE_DIR, "/profiles/server-voice");
 });
 
 test("bad VOICE_UPSTREAM_URL is rejected without echoing the value", () => {

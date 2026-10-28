@@ -22,7 +22,7 @@ const wav24k = Buffer.from(
 ).toString("base64");
 const profile: VoiceProfile = {
   audioBase64: wav24k,
-  promptText: "Skippy the Magnificent.",
+  promptText: "This is the server voice.",
 };
 
 /** A clock whose timers fire only when the test advances it. */

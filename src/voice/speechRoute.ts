@@ -1,5 +1,5 @@
 /**
- * The OpenAI-shaped face of Skippy's voice:
+ * The OpenAI-shaped face of the server voice:
  * POST /voice/v1/audio/speech answers audio bytes for a stock OpenAI SDK,
  * GET /voice/v1/audio/voices lists the voice, and
  * GET /voice/.well-known/speech describes the routes. Synthesis goes through

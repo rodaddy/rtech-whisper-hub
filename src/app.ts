@@ -96,7 +96,7 @@ export function createApp({
   voiceConfig?: VoiceConfig;
   fetch?: typeof globalThis.fetch;
   clock?: Clock;
-  /** Skippy's profile, loaded once at startup; null means synthesis without a client voice is 503. */
+  /** The server voice profile, loaded once at startup; null means synthesis without a client voice is 503. */
   voiceProfile?: VoiceProfile | null;
   /** Upstream slots on the shared GPU; tests lower it. */
   globalConcurrency?: number;

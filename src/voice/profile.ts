@@ -1,5 +1,5 @@
 /**
- * Skippy's server-side voice profile: the reference clip (ref.wav) and its
+ * The server-side voice profile: the reference clip (ref.wav) and its
  * transcript (ref.txt) that OmniVoice clones from. Ported from the desktop
  * app's load_voice_profile (github.com/rodaddy/openwhispr, branch rtech-whisper:
  * server/agent/src/voice_agent/config.py).
